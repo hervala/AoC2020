@@ -1,5 +1,6 @@
 ﻿using CliFx;
 using CliFx.Attributes;
+using Spectre.Console;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -14,6 +15,14 @@ namespace AdventOfCode2020
     [Command(nameof(Day11))]
     public class Day11 : DayCommand, ICommand
     {
+        [CommandOption("visual", 'v', Description = "Render the seating evolutions.")]
+        public bool RenderSeating { get; set; } = false;
+
+        [CommandOption("delay", 'd', Description = "Frame delay (ms).")]
+        public int RenderDelay { get; set; } = 500;
+
+        private int frameCnt = 1;
+
         public override ValueTask Part01(IConsole console)
         {
             var seatMap = ParseInput(day11Input);
@@ -40,6 +49,7 @@ namespace AdventOfCode2020
                     }
                 }
                 seatMap = seatMapBuffer.Select(s => s.ToArray()).ToArray();
+                DrawSeatMap(seatMap, console);
             } while (changeDetected);
 
             var totalSeatsOccupied = seatMap.SelectMany(a => a).Where(i => i > 0).Count();
@@ -74,12 +84,53 @@ namespace AdventOfCode2020
                     }
                 }
                 seatMap = seatMapBuffer.Select(s => s.ToArray()).ToArray();
+                DrawSeatMap(seatMap, console);
             } while (changeDetected);
 
             var totalSeatsOccupied = seatMap.SelectMany(a => a).Where(i => i > 0).Count();
 
             console.Output.WriteLine($"{totalSeatsOccupied}");
+
             return default;
+        }
+
+        private void DrawSeatMap(int[][] seatMap, IConsole console)
+        {
+            if (!RenderSeating)
+                return;
+
+            frameCnt++;
+            if (frameCnt % 2 == 0)
+                return;
+
+            var ansiConsole = AnsiConsole.Create(new AnsiConsoleSettings
+            {
+                Ansi = AnsiSupport.Detect,
+                ColorSystem = ColorSystemSupport.Detect,
+                Out = console.Output
+            });
+
+            var canvas = new Canvas(seatMap[0].Length, seatMap.Length);
+
+            foreach (var y in Enumerable.Range(0, seatMap.Length))
+            {
+                foreach (var x in Enumerable.Range(0, seatMap[y].Length))
+                {
+                    var color = seatMap[y][x] switch
+                    {
+                        1 => Color.Maroon,
+                        0 => Color.DarkOliveGreen3_2,
+                        _ => Color.Black,
+                    };
+                    canvas.SetPixel(x, y, color);
+                }
+            }
+
+            ansiConsole.Clear(home: true);
+            ansiConsole.Render(new Rule($"[yellow]{"Seating"}[/]").LeftAligned().RuleStyle("grey"));
+            ansiConsole.WriteLine();
+            ansiConsole.Render(canvas);
+            Task.Delay(RenderDelay).Wait();
         }
 
         private int CalculateNeigborSeats(int[][] seatMap, int y, int x)
